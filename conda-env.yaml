@@ -1,4 +1,4 @@
-name: cca
+name: cloudlens-ai
 channels:
   - defaults
 dependencies:
@@ -92,4 +92,4 @@ dependencies:
       - xxhash==3.7.0
       - yarl==1.23.0
       - zstandard==0.25.0
-prefix: /home/shivansh/miniconda3/envs/cca
+prefix: /home/shivansh/miniconda3/envs/cloudlens-ai

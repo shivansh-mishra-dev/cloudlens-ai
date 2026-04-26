@@ -80,22 +80,24 @@ docker compose -f docker/docker-compose.yaml up -d
 
 1. Clone the repositoy:
 ```bash
-git clone [https://github.com/yourusername/cloudlens-ai.git](https://github.com/yourusername/cloudlens-ai.git)
+git clone https://github.com/shivansh-mishra-dev/cloudlens-ai.git
 cd cloudlens-ai
 ```
 
 2. Create a virtual environment and install dependencies:
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 or 
 
 ```bash
-conda env create -f conda.yaml
+conda env create -f conda-env.yaml
+conda activate cloudlens-ai
+pip install -r requirements.txt
 ```
 
 
