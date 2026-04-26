@@ -25,17 +25,34 @@ This project was built with a focus on enterprise-grade architecture, safety, an
 ## 📂 Project Structure
 
 ```text
-├── ai/
-│   ├── agent_state.py      # LangGraph TypedDict state definition
-│   ├── graph.py            # StateGraph compilation and edge routing
-│   ├── nodes.py            # Core LangGraph nodes (Evaluator, Generator, Validator, Formatter)
-│   ├── session_manager.py  # Redis connection and TTL caching logic
-│   └── tools.py            # LangChain @tool wrapper for Steampipe subprocess execution
-├── cli/
-│   ├── __init__.py
-│   ├── __main__.py         # Entry point (python -m cli)
-│   └── run.py              # Interactive REPL chat loop
-└── README.md
+.
+├── ai
+│   ├── agent_state.py
+│   ├── __init__.py
+│   ├── _langgraph
+│   │   ├── build_agent_graph.py
+│   │   ├── evaluate_intent_node.py
+│   │   ├── execute_sql_node.py
+│   │   ├── format_response_node.py
+│   │   ├── generate_sql_node.py
+│   │   ├── guardrail_node.py
+│   │   ├── __init__.py
+│   │   └── validate_sql_node.py
+│   ├── models
+│   │   ├── gemma4_e2b.py
+│   │   └── __init__.py
+│   ├── prompts.py
+│   ├── session_manager.py
+│   └── tools
+│       ├── execute_aws_sql_query.py
+│       └── __init__.py
+├── app.py # Dummy file
+└── cli
+    ├── __init__.py
+    ├── __main__.py # Entry point (python -m cli)
+    └── run.py # Interactive REPL chat loop
+
+6 directories, 20 files
 ```
 
 ## Prerequisites
