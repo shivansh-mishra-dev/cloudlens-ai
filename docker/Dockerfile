@@ -4,7 +4,7 @@ WORKDIR /app/src/ui
 COPY src/ui/package.json src/ui/bun.lock* ./
 RUN bun install
 
-COPY /src/ui ./
+COPY src/ui ./
 RUN bun run build
 
 FROM python:3.12-slim

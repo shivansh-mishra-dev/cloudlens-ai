@@ -13,7 +13,7 @@ services:
 
   cloudlens-ai:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile
     container_name: cloudlens-ai
     ports:
