@@ -18,7 +18,7 @@ def execute_sql_node(state: AgentState) -> dict:
     logger.info(f"Preparing to execute SQL for session : {session_id}")
 
     aws_access_key, aws_secret_key = get_aws_credentials(session_id)
-
+    print(f"\n[DEBUG] SQL : {sql}\n")
     raw_json_result = execute_aws_sql_query.invoke(
         {
             "query": sql,

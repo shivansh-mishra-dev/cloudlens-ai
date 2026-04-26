@@ -22,7 +22,7 @@ This project was built with a focus on enterprise-grade architecture, safety, an
 * **Rolling Window Memory:** Implements a LangGraph `MemorySaver` checkpointer with a sliced context window to maintain conversational history (e.g., *"Sort that last list by date"*) without causing an LLM token blowout.
 * **Chain-of-Thought (CoT) Prompting:** The LLM is prompted to output its reasoning in a `<thought_process>` block before generating SQL, drastically reducing syntax errors from the smaller local model.
 
-## 📂 Project Structure
+## Project Structure
 
 ```text
 .
@@ -112,20 +112,19 @@ python -m cli
 Upon startup, you will be securely prompted for your temporary AWS credentials (input is hidden). These are cached in Redis for 15 minutes.
 
 ## Example Interaction:
+```text
 You: List my S3 buckets.
 
 Agent: Thinking...
-
 Agent: Based on the AWS data provided, here are the S3 buckets found:
 
-bucket-name (Region: ap-south-1)
+    * bucket-name (Region: ap-south-1)
 
 You: How many items does the first bucket have?
 
 Agent: Thinking...
-
 Agent: The bucket 'bucket-name' currently contains 42 objects.
-
+```
 ## Next Steps (Phase 3 & 4)
 
 * FastAPI & SSE Integration: Wrap the LangGraph execution in a FastAPI backend and stream the agent's thought process token-by-token using Server-Sent Events (SSE).

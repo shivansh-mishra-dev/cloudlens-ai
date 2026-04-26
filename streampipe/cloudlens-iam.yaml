@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Provisions the 'cloudlens-ai' IAM User with strict Read-Only access 
+  to S3, EC2, and RDS, and generates programmatic access keys.
+
+Resources:
+  # 1. Create the IAM User and attach Managed Policies
+  CloudLensAIUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: 'cloudlens-ai'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
+        - 'arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess'
+        - 'arn:aws:iam::aws:policy/AmazonRDSReadOnlyAccess'
+
+  # 2. Generate Programmatic Access Keys for the User
+  CloudLensAIAccessKey:
+    Type: 'AWS::IAM::AccessKey'
+    Properties:
+      UserName: !Ref CloudLensAIUser
+
+# 3. Output the keys so you can copy them into your UI
+Outputs:
+  AccessKeyId:
+    Description: 'Access Key ID for the cloudlens-ai agent'
+    Value: !Ref CloudLensAIAccessKey
+    
+  SecretAccessKey:
+    Description: 'Secret Access Key for the cloudlens-ai agent'
+    Value: !GetAtt CloudLensAIAccessKey.SecretAccessKey
