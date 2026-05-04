@@ -22,11 +22,11 @@ COPY requirements.txt .
 RUN pip install --user --no-cache-dir -r requirements.txt
 
 ENV PATH="/home/cloudlens/.local/bin:${PATH}"
-
 COPY --chown=cloudlens:cloudlens src/ ./src/
+ENV PYTHONPATH=/home/cloudlens/app/src
 
 COPY --from=frontend-builder --chown=cloudlens:cloudlens /app/src/ui/dist ./src/ui/dist
 
 EXPOSE 8000
 
-CMD [ "pyhton3", "-m", "api.run" ]
+CMD [ "python3", "-m", "api.run" ]
