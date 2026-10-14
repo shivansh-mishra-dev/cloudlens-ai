@@ -1,132 +1,127 @@
-# CloudLens AI: Agentic AWS Infrastructure Assistant
+# CloudLens AI
 
-CloudLens AI is a conversational, agentic AI assistant designed to query and audit AWS cloud infrastructure using natural language. 
+**Ask your AWS account questions in plain English.** CloudLens AI is an agentic assistant that turns natural-language questions into safe, read-only SQL over your live AWS infrastructure, runs them, and answers conversationally.
 
-Instead of writing complex AWS CLI commands or custom Python scripts, users can simply ask questions like, *"List all my public S3 buckets,"* or *"How many EC2 instances are currently running?"* The agent translates these intents into strictly read-only PostgreSQL queries, executes them against the live AWS environment, and formats the results into a conversational response.
+> *"List all my public S3 buckets."* · *"How many EC2 instances are running in ap-south-1?"* · *"Sort that last list by creation date."*
 
-## Core Technologies
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-agent-1C3C3C)
+![FastAPI](https://img.shields.io/badge/FastAPI-SSE-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-UI-61DAFB?logo=react&logoColor=black)
+![Ollama](https://img.shields.io/badge/LLM-Gemma%20via%20Ollama-000000)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
 
-* **Orchestration (The Brain):** [LangGraph](https://www.langchain.com/langgraph) (Stateful, multi-actor agent orchestration)
-* **Data Layer (The Engine):** [Steampipe](https://steampipe.io/) (Zero-ETL tool exposing AWS APIs as a high-performance PostgreSQL database)
-* **LLM:** Local `gemma4:e2b` running via [Ollama](https://ollama.com/) (Zero-cost, private inference)
-* **Session Management:** Redis (Dockerized) for secure, ephemeral AWS credential caching.
+## How it works
 
-## Architectural Highlights
-
-This project was built with a focus on enterprise-grade architecture, safety, and fault tolerance:
-
-* **Protective Gateway (Guardrails):** The input flows through an Evaluator and Guardrail node. If a user asks a non-infrastructure question (e.g., "Bake a cake"), the graph short-circuits to reject the prompt, preventing prompt injection attacks.
-* **LLM-Free Security Firewall:** A deterministic Python `CodeValidator` node inspects the generated SQL. It strictly enforces read-only operations by blocking `DROP`, `DELETE`, `UPDATE`, or `INSERT` statements before they reach the execution layer.
-* **Cyclic Self-Correction:** If the generated SQL has a syntax error or fails the security firewall, LangGraph routes the execution *back* to the LLM with the error context, allowing the agent to self-correct and retry.
-* **Stateless Execution & Race Condition Prevention:** AWS credentials are not stored in environment variables or configuration files. They are securely cached in Redis with a strict 15-minute Time-To-Live (TTL) using a unique `session_id`, ensuring thread safety and preventing credential leakage across concurrent users.
-* **Rolling Window Memory:** Implements a LangGraph `MemorySaver` checkpointer with a sliced context window to maintain conversational history (e.g., *"Sort that last list by date"*) without causing an LLM token blowout.
-* **Chain-of-Thought (CoT) Prompting:** The LLM is prompted to output its reasoning in a `<thought_process>` block before generating SQL, drastically reducing syntax errors from the smaller local model.
-
-## Project Structure
-
-```text
-.
-├── ai
-│   ├── agent_state.py
-│   ├── __init__.py
-│   ├── _langgraph
-│   │   ├── build_agent_graph.py
-│   │   ├── evaluate_intent_node.py
-│   │   ├── execute_sql_node.py
-│   │   ├── format_response_node.py
-│   │   ├── generate_sql_node.py
-│   │   ├── guardrail_node.py
-│   │   ├── __init__.py
-│   │   └── validate_sql_node.py
-│   ├── models
-│   │   ├── gemma4_e2b.py
-│   │   └── __init__.py
-│   ├── prompts.py
-│   ├── session_manager.py
-│   └── tools
-│       ├── execute_aws_sql_query.py
-│       └── __init__.py
-├── app.py # Dummy file
-└── cli
-    ├── __init__.py
-    ├── __main__.py # Entry point (python -m cli)
-    └── run.py # Interactive REPL chat loop
-
-6 directories, 20 files
+```mermaid
+flowchart LR
+    U([User question]) --> E[Evaluate intent]
+    E --> G{Guardrail:<br/>AWS infra question?}
+    G -- no --> F[Format response]
+    G -- yes --> S[Generate SQL<br/>LLM + CoT]
+    S --> V{Validate SQL<br/>read-only firewall}
+    V -- error --> S
+    V -- ok --> X[Execute via Steampipe<br/>AWS as Postgres]
+    X --> F
+    F --> R([Answer, streamed over SSE])
 ```
 
-## Prerequisites
+| Layer | Technology |
+|---|---|
+| Agent orchestration | [LangGraph](https://www.langchain.com/langgraph) state graph with conditional edges and a checkpointer |
+| Data layer | [Steampipe](https://steampipe.io/): AWS APIs exposed as a PostgreSQL database, zero ETL |
+| LLM | Local `gemma4:e2b` via [Ollama](https://ollama.com/): free, private inference |
+| API | FastAPI with Server-Sent Events streaming of node-by-node progress |
+| UI | React + TypeScript (Vite) chat interface |
+| Sessions | Redis: AWS credentials cached per session with a 15-minute TTL |
 
-1. **Ollama** installed and running locally
+## Design highlights
+
+- **Guardrail gateway.** Off-topic prompts ("bake a cake") short-circuit straight to the response node, which blocks prompt-injection attempts from ever reaching SQL generation.
+- **LLM-free security firewall.** A deterministic validator inspects every generated query and rejects anything that isn't read-only (`DROP`, `DELETE`, `UPDATE`, `INSERT`, …) before execution.
+- **Self-correction loop.** If SQL fails validation or has a syntax error, the graph routes back to the generator with the error as context and retries.
+- **No credentials on disk.** AWS keys are never written to env files or config. Each session's keys live in Redis under a unique `session_id` with a strict 15-minute TTL, which keeps concurrent users isolated.
+- **Rolling-window memory.** A LangGraph `MemorySaver` checkpointer with a sliced context window supports follow-ups ("sort that by date") without blowing up the token budget.
+- **Chain-of-thought prompting.** The model reasons in a `<thought_process>` block before writing SQL, which sharply reduces syntax errors from a small local model.
+- **Least-privilege IAM.** [`streampipe/cloudlens-iam.yaml`](streampipe/cloudlens-iam.yaml) is a CloudFormation template that provisions a read-only IAM user scoped to S3, EC2 and RDS.
+
+## Quick start (Docker)
+
+Prerequisites: Docker, and [Ollama](https://ollama.com/) running on the host with the model pulled.
 
 ```bash
-ollama run gemma4:e2b
-```
-
-2. **Steampipe** Installed with the AWS plugin configured.
-```bash
-steampipe plugin install aws
-```
-
-3. **Redis** running locally (use the provided docker-commpose.yaml)
-```bash
-docker compose -f docker/docker-compose.yaml up -d
-```
-
-4. **AWS Credentials** A set of AWS Access Keys (Preferably with ReadOnlyAccess IAM permissions attached).
-
-
-## Installation & Setup
-
-1. Clone the repositoy:
-```bash
+ollama pull gemma4:e2b
 git clone https://github.com/shivansh-mishra-dev/cloudlens-ai.git
 cd cloudlens-ai
+docker compose -f docker/docker-compose.yaml up --build
 ```
 
-2. Create a virtual environment and install dependencies:
+Open http://localhost:8000, enter read-only AWS keys, and start asking questions. The image builds the React UI, installs Steampipe with the AWS plugin, and serves everything from FastAPI.
+
+## Local development
+
+**Prerequisites:** Python 3.12, Ollama with `gemma4:e2b`, [Steampipe](https://steampipe.io/downloads) with `steampipe plugin install aws`, Redis (`docker compose -f docker/docker-compose.yaml up -d redis-stack`), and [Bun](https://bun.sh/) for the UI.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt        # or: conda env create -f conda-env.yaml
+
+# Option A: interactive CLI
+cd src && python -m cli
+
+# Option B: API + web UI
+cd src/ui && bun install && bun run build && cd ..
+python -m api.run                       # serves on http://localhost:8000
 ```
 
-or 
+### Configuration
 
-```bash
-conda env create -f conda-env.yaml
-conda activate cloudlens-ai
-pip install -r requirements.txt
-```
+| Variable | Default |
+|---|---|
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | `localhost` / `6379` / `RedisPass032` |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` |
+| `OLLAMA_MODEL` | `gemma4:e2b` |
 
+### API
 
-## Usage
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/session` | Cache AWS credentials and return a `session_id` (15-minute TTL) |
+| `POST` | `/chat/stream` | Stream the agent run as SSE: `node_status` events, then `final_response` |
 
-Run the application using the Command Line Interface (CLI) module:
+## Example
 
-```bash
-python -m cli
-```
-
-Upon startup, you will be securely prompted for your temporary AWS credentials (input is hidden). These are cached in Redis for 15 minutes.
-
-## Example Interaction:
 ```text
-You: List my S3 buckets.
+You:   List my S3 buckets.
+Agent: Here are the S3 buckets found:
+       * bucket-name (Region: ap-south-1)
 
-Agent: Thinking...
-Agent: Based on the AWS data provided, here are the S3 buckets found:
-
-    * bucket-name (Region: ap-south-1)
-
-You: How many items does the first bucket have?
-
-Agent: Thinking...
+You:   How many objects does the first bucket have?
 Agent: The bucket 'bucket-name' currently contains 42 objects.
 ```
-## Next Steps (Phase 3 & 4)
 
-* FastAPI & SSE Integration: Wrap the LangGraph execution in a FastAPI backend and stream the agent's thought process token-by-token using Server-Sent Events (SSE).
+## Project structure
 
-* RAG Schema Injection: Implement a Vector Database to dynamically retrieve and inject Steampipe table schemas into the LLM context, expanding support beyond S3, EC2, and RDS.
+```text
+src/
+├── ai/
+│   ├── _langgraph/        # graph nodes: evaluate, guardrail, generate, validate, execute, format
+│   ├── models/            # Ollama model connector
+│   ├── tools/             # Steampipe SQL execution tool
+│   ├── agent_state.py     # shared graph state
+│   ├── prompts.py
+│   └── session_manager.py # Redis credential cache
+├── api/                   # FastAPI server, routes and schemas (SSE streaming)
+├── cli/                   # interactive REPL (python -m cli)
+└── ui/                    # React + TypeScript chat UI (Vite)
+docker/                    # Dockerfile and docker-compose
+streampipe/                # Steampipe installer and read-only IAM CloudFormation template
+```
+
+## Roadmap
+
+- [x] LangGraph agent with guardrails, SQL firewall and self-correction
+- [x] FastAPI backend with SSE streaming
+- [x] React chat UI and single-container Docker build
+- [ ] RAG schema injection: retrieve Steampipe table schemas from a vector store to support services beyond S3, EC2 and RDS
+- [ ] Pluggable model providers (AWS Bedrock, OpenAI-compatible endpoints)

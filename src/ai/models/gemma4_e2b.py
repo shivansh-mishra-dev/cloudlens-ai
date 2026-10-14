@@ -1,3 +1,4 @@
+import os
 from langchain_ollama.chat_models import ChatOllama
 import logging
 
@@ -12,7 +13,9 @@ def gemma4e2b():
 
     try:
         llm = ChatOllama(
-            model="gemma4:e2b", base_url="http://localhost:11434", temperature=0.0
+            model=os.getenv("OLLAMA_MODEL", "gemma4:e2b"),
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+            temperature=0.0,
         )
 
         return llm

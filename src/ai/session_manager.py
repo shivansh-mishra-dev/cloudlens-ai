@@ -1,3 +1,4 @@
+import os
 import redis
 import json
 import logging
@@ -6,9 +7,9 @@ from typing import Tuple, Optional, cast
 logger = logging.getLogger(__name__)
 
 
-REDIS_HOST = "localhost"
-REDIS_PORT = 6379
-REDIS_PASSWORD = "RedisPass032"
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "RedisPass032")
 
 
 try:
